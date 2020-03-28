@@ -231,6 +231,26 @@ if rails_available?
         end
       end
 
+      it "rake jasmine:ci returns proper message when spec refers to dom element" do
+        Bundler.with_unbundled_env do
+          FileUtils.cp(File.join(@root, 'spec', 'fixture', 'document_test.js'), File.join('spec', 'javascripts'))
+          failing_yaml = custom_jasmine_config('failing') do |jasmine_config|
+            jasmine_config['spec_files'] << 'document_test.js'
+          end
+          output = `bundle exec rake jasmine:ci JASMINE_CONFIG_PATH=#{failing_yaml}`
+          expect($?).to_not be_success
+
+          case browser
+          when :phantomjs
+            expect(output).to include('TypeError: undefined is not a constructor')
+          when :chromeheadless
+            expect(output).to include('TypeError: expect(...).toHaveLength is not a function')
+          else
+            expect("the broser #{browser} need to be added here").to eq("")
+          end
+        end
+      end
+
       it "rake jasmine:ci runs specs when an error occurs in the javascript" do
         Bundler.with_unbundled_env do
           FileUtils.cp(File.join(@root, 'spec', 'fixture', 'exception_test.js'), File.join('spec', 'javascripts'))
@@ -260,10 +280,12 @@ if rails_available?
     end
 
     describe "with phantomJS" do
+      let(:browser) { :phantomjs }
       it_behaves_like 'a working jasmine:ci'
     end
 
     describe "with Chrome headless" do
+      let(:browser) { :chromeheadless }
       before :all do
         open('spec/javascripts/support/jasmine_helper.rb', 'w') { |f|
           f.puts "Jasmine.configure do |config|\n  config.runner_browser = :chromeheadless\nend\n"
